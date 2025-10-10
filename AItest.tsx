@@ -23,11 +23,12 @@ export default function AItest({
   const [rememberKey, setRememberKey] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // 修正 useRef 的預設值
   const listRef = useRef<HTMLDivElement | null>(null);
 
   // Load key from localStorage (for demo only — never ship an exposed key in production)
   useEffect(() => {
-    const saved = localStorage.getItem('AIzaSyCYxks0PfkeuxgT-znQT8HZILE1Pq1yZK0');
+    const saved = localStorage.getItem('gemini_api_key'); 
     if (saved) setApiKey(saved);
   }, []);
 
@@ -92,36 +93,41 @@ export default function AItest({
   return (
     <div style={styles.wrap}>
       <div style={styles.card}>
-        <div style={styles.header}>Gemini Chat（直連 SDK，不經 proxy）</div>
 
-        {/* Controls */}
+        {/* Header */}
+        <div style={styles.header}>Gemini Chat 聊天小幫手 🤖</div>
+
+        {/* Controls (Model and API Key) */}
         <div style={styles.controls}>
-          <label style={styles.label}>
-            <span>Model</span>
-            <input
-              value={model}
-              onChange={e => setModel(e.target.value)}
-              placeholder="例如 gemini-2.5-flash、gemini-2.5-pro"
-              style={styles.input}
-            />
-            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-              模型名稱會隨時間更新，若錯誤請改成官方清單中的有效 ID。
+          <div style={styles.controlGroup}>
+            <label style={styles.label}>
+              <span style={styles.labelTitle}>模型 (Model)</span>
+              <input
+                value={model}
+                onChange={e => setModel(e.target.value)}
+                placeholder="例如 gemini-2.5-flash"
+                style={styles.input}
+              />
+            </label>
+            <div style={styles.controlInfo}>
+               模型名稱可能隨時更新，請使用有效的 ID。
             </div>
-          </label>
-
-          <label style={styles.label}>
-            <span>Gemini API Key</span>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => {
-                const v = e.target.value; setApiKey(v);
-                if (rememberKey) localStorage.setItem('gemini_api_key', v);
-              }}
-              placeholder="貼上你的 API Key（只在本機瀏覽器儲存）"
-              style={styles.input}
-            />
-            <label style={{ display:'flex', alignItems:'center', gap:8, marginTop:6, fontSize:12 }}>
+          </div>
+          <div style={styles.controlGroup}>
+            <label style={styles.label}>
+              <span style={styles.labelTitle}>Gemini API Key</span>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => {
+                  const v = e.target.value; setApiKey(v);
+                  if (rememberKey) localStorage.setItem('gemini_api_key', v);
+                }}
+                placeholder="貼上你的 API Key"
+                style={styles.input}
+              />
+            </label>
+            <label style={styles.keyRememberLabel}>
               <input type="checkbox" checked={rememberKey} onChange={(e)=>{
                 setRememberKey(e.target.checked);
                 if (!e.target.checked) localStorage.removeItem('gemini_api_key');
@@ -129,24 +135,30 @@ export default function AItest({
               }} />
               <span>記住在本機（localStorage）</span>
             </label>
-            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-              Demo 用法：在瀏覽器內保存 Key 僅供教學。正式環境請改走後端或使用安全限制的 Key。
-            </div>
-          </label>
+          </div>
         </div>
 
         {/* Messages */}
         <div ref={listRef} style={styles.messages}>
           {history.map((m, idx) => (
-            <div key={idx} style={{ ...styles.msg, ...(m.role === 'user' ? styles.user : styles.assistant) }}>
-              <div style={styles.msgRole}>{m.role === 'user' ? 'You' : 'Gemini'}</div>
-              <div style={styles.msgBody}>{renderMarkdownLike(m.parts.map(p => p.text).join('\n'))}</div>
+            <div
+              key={idx}
+              style={{
+                ...styles.msgContainer,
+                ...(m.role === 'user' ? styles.userContainer : styles.assistantContainer)
+              }}
+            >
+              <div style={m.role === 'user' ? styles.userMsg : styles.assistantMsg}>
+                {/* 移除了角色標籤，僅靠樣式區分 */}
+                <div style={styles.msgBody}>{renderMarkdownLike(m.parts.map(p => p.text).join('\n'))}</div>
+              </div>
             </div>
           ))}
           {loading && (
-            <div style={{ ...styles.msg, ...styles.assistant }}>
-              <div style={styles.msgRole}>Gemini</div>
-              <div style={styles.msgBody}>思考中…</div>
+            <div style={{ ...styles.msgContainer, ...styles.assistantContainer }}>
+              <div style={styles.assistantMsg}>
+                <div style={styles.msgBody}>思考中…</div>
+              </div>
             </div>
           )}
         </div>
@@ -168,12 +180,12 @@ export default function AItest({
             style={styles.textInput}
           />
           <button type="submit" disabled={loading || !input.trim() || !apiKey} style={styles.sendBtn}>
-            送出
+            {loading ? '傳送中' : '傳送'}
           </button>
         </form>
 
         {/* Quick examples */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+        <div style={styles.suggestionList}>
           {['日本淺草附近有哪些推薦的住宿？', '日本淺草必吃美食', '日本東京迪士尼必玩項目'].map((q) => (
             <button key={q} type="button" style={styles.suggestion} onClick={() => sendMessage(q)}>{q}</button>
           ))}
@@ -184,37 +196,135 @@ export default function AItest({
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  wrap: { display: 'grid', placeItems: 'start', padding: 16 },
+  wrap: { 
+    display: 'flex', 
+    justifyContent: 'center', 
+    padding: 16, 
+    background: '#f0f2f5', 
+    minHeight: '100vh' 
+  },
   card: {
-    width: 'min(900px, 100%)',
+    width: 'min(768px, 100%)', 
+    height: '80vh', 
+    display: 'flex',
+    flexDirection: 'column',
     background: '#fff',
-    border: '1px solid #e5e7eb',
-    borderRadius: 16,
+    borderRadius: 20, 
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)', 
     overflow: 'hidden',
   },
   header: {
-    padding: '10px 12px',
-    fontWeight: 700,
-    borderBottom: '1px solid #e5e7eb',
+    padding: '12px 20px',
+    fontWeight: 600,
+    fontSize: 16,
+    color: '#333',
     background: '#f9fafb',
+    textAlign: 'center',
+    borderBottom: '1px solid #eee',
   },
   controls: {
-    display: 'grid',
-    gap: 12,
-    gridTemplateColumns: '1fr 1fr',
-    padding: 12,
+    display: 'flex',
+    gap: 16,
+    padding: 16,
+    borderBottom: '1px dashed #eee', 
+    fontSize: 12,
   },
-  label: { display: 'grid', gap: 6, fontSize: 13, fontWeight: 600 },
-  input: { padding: '10px 12px', borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 14 },
-  messages: { padding: 12, display: 'grid', gap: 10, maxHeight: 420, overflow: 'auto' },
-  msg: { borderRadius: 12, padding: 10, border: '1px solid #e5e7eb' },
-  user: { background: '#eef2ff', borderColor: '#c7d2fe' },
-  assistant: { background: '#f1f5f9', borderColor: '#e2e8f0' },
-  msgRole: { fontSize: 12, fontWeight: 700, opacity: 0.7, marginBottom: 6 },
+  controlGroup: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  label: { display: 'grid', gap: 4 },
+  labelTitle: { fontWeight: 500, opacity: 0.8 },
+  controlInfo: { fontSize: 11, opacity: 0.6, marginTop: 4 },
+  input: { padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', fontSize: 13, width: '100%' },
+  keyRememberLabel: { display:'flex', alignItems:'center', gap:6, marginTop:4, fontSize:11, opacity: 0.7 },
+  
+  messages: {
+    padding: 16,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    flexGrow: 1, 
+    overflowY: 'auto',
+    backgroundColor: '#fff',
+  },
+  msgContainer: {
+    display: 'flex',
+    maxWidth: '85%', 
+  },
+  userContainer: {
+    justifyContent: 'flex-end', 
+    marginLeft: 'auto',
+  },
+  assistantContainer: {
+    justifyContent: 'flex-start', 
+    marginRight: 'auto',
+  },
+  userMsg: {
+    borderRadius: '16px 16px 0 16px', 
+    padding: '10px 14px',
+    background: '#007aff', 
+    color: '#fff',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+  },
+  assistantMsg: {
+    borderRadius: '16px 16px 16px 0', 
+    padding: '10px 14px',
+    background: '#e5e7eb', 
+    color: '#333',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+  },
   msgBody: { fontSize: 14, lineHeight: 1.5 },
-  error: { color: '#b91c1c', padding: '4px 12px' },
-  composer: { padding: 12, display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, borderTop: '1px solid #e5e7eb' },
-  textInput: { padding: '10px 12px', borderRadius: 10, border: '1px solid #e5e7eb', fontSize: 14 },
-  sendBtn: { padding: '10px 14px', borderRadius: 999, border: '1px solid #111827', background: '#111827', color: '#fff', fontSize: 14, cursor: 'pointer' },
-  suggestion: { padding: '6px 10px', borderRadius: 999, border: '1px solid #e5e7eb', background: '#f9fafb', cursor: 'pointer', fontSize: 12 },
+  error: { color: '#b91c1c', padding: '8px 16px', borderTop: '1px solid #fecaca', background: '#fef2f2' },
+  
+  composer: { 
+    padding: 16, 
+    display: 'grid', 
+    gridTemplateColumns: '1fr auto', 
+    gap: 10, 
+    borderTop: '1px solid #eee',
+    background: '#fff',
+  },
+  textInput: { 
+    padding: '12px 16px', 
+    borderRadius: 24, 
+    border: '1px solid #ddd', 
+    fontSize: 14,
+    flexGrow: 1,
+  },
+  sendBtn: { 
+    padding: '0 20px', 
+    borderRadius: 24, 
+    border: 'none', 
+    background: '#007aff', 
+    color: '#fff', 
+    fontSize: 14, 
+    fontWeight: 600,
+    cursor: 'pointer',
+    opacity: 1,
+    transition: 'opacity 0.2s',
+    display: 'flex',
+    alignItems: 'center', 
+    justifyContent: 'center',
+    height: 'auto',
+  },
+  suggestionList: { 
+    display: 'flex', 
+    gap: 8, 
+    flexWrap: 'wrap', 
+    padding: '0 16px 16px',
+    borderTop: '1px solid #eee', 
+    background: '#fff',
+  },
+  suggestion: { 
+    padding: '6px 12px', 
+    borderRadius: 20, 
+    border: '1px solid #ccc', 
+    background: '#f9fafb', 
+    cursor: 'pointer', 
+    fontSize: 12,
+    color: '#4b5563',
+    transition: 'background 0.2s',
+  },
 };
